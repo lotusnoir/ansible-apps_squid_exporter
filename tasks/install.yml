@@ -19,12 +19,12 @@
         dest: '{{ squid_exporter_install_dir }}/squid-exporter'
         timeout: 120
         mode: '0755'
-      when: not squid_exporter_local_dl | bool
+      when: not squid_exporter_local_dl and squid_exporter_local_path == 0 | bool
 
     - name: "Download squid_exporter from localhost..."
       ansible.builtin.get_url:
         url: '{{ squid_exporter_url }}'
-        dest: '/tmp/squid-exporter'
+        dest: '{{ squid_exporter_local_path }}'
         timeout: 120
         mode: '0755'
       delegate_to: localhost
@@ -32,12 +32,12 @@
 
     - name: "Propagate squid_exporter binary"
       ansible.builtin.copy:
-        src: "/tmp/squid-exporter"
+        src: "{{ squid_exporter_local_path }}"
         dest: '{{ squid_exporter_install_dir }}/squid-exporter'
         mode: '0755'
         owner: root
         group: root
-      when: squid_exporter_local_dl | bool
+      when: squid_exporter_local_path
 
 - name: "Create systemd for squid_exporter"
   ansible.builtin.template:
