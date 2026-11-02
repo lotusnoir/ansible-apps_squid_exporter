@@ -8,6 +8,7 @@ driver:
 scenario:
   name: oraclelinux9
   test_sequence:
+    - dependency
     - cleanup
     - destroy
     - syntax
@@ -16,6 +17,7 @@ scenario:
     - converge
     - idempotence
     - side_effect
+    - verify
     - cleanup
     - destroy
 

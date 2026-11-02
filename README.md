@@ -18,9 +18,8 @@ Deploy [squid_exporter](https://github.com/boynux/squid-exporter) to expose squi
 This role deploys squid-exporter (https://github.com/boynux/squid-exporter), a Prometheus exporter exposing Squid proxy metrics. It downloads the pre-built binary release, installs it on the target, and manages it as a systemd service.
 
 ## Requirements
-- Internet access to `github.com` from the Ansible **controller** (default) or from the **target host** if `squid_exporter_local_dl: false`, to download the release binary
-- `ca-certificates` package (installed automatically by the role) for HTTPS download validation
-- Currently ships a `linux-amd64` binary URL only — override `squid_exporter_url` for other architectures
+- Internet access to github.com from the Ansible controller (default) or target host
+- ca-certificates package (installed automatically by the role)
 
 ## Role variables
 

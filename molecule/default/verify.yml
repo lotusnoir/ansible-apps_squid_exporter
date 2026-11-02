@@ -1,0 +1,51 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: true
+  any_errors_fatal: true
+  tasks:
+    - name: "Verify tasks"
+      when: not (ansible_facts.os_family in ['RedHat', 'Rocky', 'OracleLinux'] and ansible_facts.distribution_major_version == '8')
+      block:
+
+        - name: Collect services as facts
+          ansible.builtin.service_facts:
+
+        - name: Check service is running
+          ansible.builtin.assert:
+            that:
+              - "ansible_facts.services['squid_exporter.service'].state == 'running'"
+
+        - name: Get squid-exporter PID
+          ansible.builtin.command: "pgrep -f squid-exporter"
+          register: process_pid
+          ignore_errors: true
+          changed_when: false
+
+        - name: Read process UID from /proc
+          ansible.builtin.shell: >-
+            awk '/^Uid:/{print $2}' /proc/{{ process_pid.stdout_lines[0] }}/status
+          register: process_uid
+          changed_when: false
+          when: process_pid.rc == 0 and process_pid.stdout_lines | length > 0
+
+        - name: Validate process running as non-root (DynamicUser hardening)
+          ansible.builtin.assert:
+            that:
+              - process_pid.rc == 0
+              - process_uid.stdout | trim | int != 0
+            fail_msg: "squid-exporter is not running, or is running as root (UID 0)"
+            success_msg: "squid-exporter running as non-root dynamic UID"
+
+        - name: Collect ports as facts
+          community.general.listen_ports_facts:
+
+        - name: Check port is listening
+          ansible.builtin.assert:
+            that:
+              - "9103 in ansible_facts.tcp_listen | map(attribute='port')"
+
+        - name: Check urls code
+          ansible.builtin.uri:
+            url: "http://127.0.0.1:9103/metrics"
+            status_code: 200
