@@ -1,13 +1,20 @@
 ---
 # Binary install
-squid_exporter_version: "1.11.0"
+squid_exporter_version: "1.13.0"
 squid_exporter_url: "https://github.com/boynux/squid-exporter/releases/download/v{{ squid_exporter_version }}/squid-exporter-linux-amd64"
 squid_exporter_install_dir: "/usr/local/bin"
 squid_exporter_force_install: false
 squid_exporter_local_dl: true
+# sha256 checksum of the downloaded binary, format "sha256:<hash>".
+# Leave empty to skip verification (not recommended for production).
+squid_exporter_checksum: ""
 
 # Systemd options
 squid_exporter_squid_host: "localhost"
 squid_exporter_squid_port: "3128"
+# Interface/IP the exporter's metrics endpoint binds to.
+# Default is loopback-only; set to "0.0.0.0" to expose it on all interfaces
+# (e.g. if Prometheus scrapes it remotely without a local relay/firewall rule).
+squid_exporter_listen_address: "127.0.0.1"
 squid_exporter_listen_port: "9103"
 squid_exporter_extra_flags: "-extractservicetimes=false"

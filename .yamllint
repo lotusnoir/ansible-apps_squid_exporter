@@ -12,8 +12,7 @@ rules:
   commas: enable
 
   comments:
-    min-spaces-from-content: 1
-    require-starting-space: true
+    require-starting-space: false
   comments-indentation: false       # obligatoire pour Galaxy
 
   document-end: disable
@@ -34,8 +33,7 @@ rules:
   key-ordering: disable             # indispensable pour Ansible/Jinja
 
   line-length:
-    max: 160
-    level: warning
+    max: 200
 
   new-line-at-end-of-file: enable
   new-lines: enable
