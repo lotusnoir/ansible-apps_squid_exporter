@@ -83,6 +83,12 @@
     mode: '0644'
   notify: "Restart squid_exporter"
 
+- name: "Validate systemd unit syntax"
+  ansible.builtin.command: systemd-analyze verify /etc/systemd/system/squid_exporter.service
+  changed_when: false
+  register: __unit_check
+  failed_when: __unit_check.rc != 0
+
 - name: "Enable and Start squid_exporter.service"
   ansible.builtin.service:
     name: squid_exporter

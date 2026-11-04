@@ -14,6 +14,11 @@ DynamicUser=yes
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryDenyWriteExecute=yes
 ExecStart={{ squid_exporter_install_dir }}/squid-exporter \
 {% if squid_exporter_extra_flags is defined and squid_exporter_extra_flags != "" %}        {{ squid_exporter_extra_flags }} \
 {% endif %}

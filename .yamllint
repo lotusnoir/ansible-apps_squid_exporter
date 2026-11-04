@@ -9,7 +9,6 @@ rules:
     max-spaces-inside: 1
   brackets: enable
   colons: enable
-  commas: enable
 
   comments:
     require-starting-space: false

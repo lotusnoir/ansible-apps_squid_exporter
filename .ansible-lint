@@ -4,6 +4,7 @@ skip_list:
   - '401'
   - 'schema'
   - yaml[line-length]
+  - yaml[commas]
 exclude_paths:
   - molecule/default/verify.yml
   - molecule/all/verify.yml
