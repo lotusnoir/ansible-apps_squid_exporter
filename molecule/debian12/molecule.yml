@@ -1,6 +1,9 @@
 ---
 dependency:
   name: galaxy
+  options:
+    role-file: requirements.yml
+    requirements-file: ""   # suppress collection install entirely if unsupported by your molecule_plugins version
 
 driver:
   name: docker
@@ -24,10 +27,13 @@ scenario:
 platforms:
   - name: apps-squid-exporter-debian12
     image: lotusnoir/ansible_molecule_test_images:debian12
+    pull: false
     command: ${MOLECULE_DOCKER_COMMAND:-""}
     cgroupns_mode: host
     pre_build_image: true
     privileged: true
+    security_opts:
+      - apparmor:unconfined
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
 

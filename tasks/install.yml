@@ -1,35 +1,85 @@
 ---
+### System account (static, auditable ownership — no DynamicUser)
+- name: "Create dedicated group for squid_exporter"
+  ansible.builtin.group:
+    name: "{{ squid_exporter_group }}"
+    system: true
+    state: present
+  become: true
+
+- name: "Create dedicated system user for squid_exporter"
+  ansible.builtin.user:
+    name: "{{ squid_exporter_user }}"
+    group: "{{ squid_exporter_group }}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: /nonexistent
+    create_home: false
+    state: present
+  become: true
+
+### Assert supported architecture
 - name: "Assert supported architecture"
   ansible.builtin.assert:
-    that: ansible_facts.architecture == "x86_64"
-    fail_msg: "squid-exporter is only published as linux-amd64 upstream (got {{ ansible_facts.architecture }}). Override squid_exporter_url for other architectures."
+    that: ansible_facts.architecture in squid_exporter_arch_map
+    fail_msg: >-
+      squid-exporter has no known upstream release for architecture
+      {{ ansible_facts.architecture }}. Supported: {{ squid_exporter_arch_map.keys() | list }}.
+      Override squid_exporter_url / squid_exporter_arch_map manually if you have a build.
     success_msg: "Architecture {{ ansible_facts.architecture }} is supported."
 
+### Current install state
 - name: "Check installed squid_exporter binary"
   ansible.builtin.stat:
-    path: '{{ squid_exporter_install_dir }}/squid-exporter'
-  changed_when: false
+    path: "{{ squid_exporter_install_dir }}/{{ squid_exporter_binary_name }}"
   register: squid_exporter_binary
 
+- name: "Get installed squid_exporter version (if any)"
+  ansible.builtin.command: "{{ squid_exporter_install_dir }}/{{ squid_exporter_binary_name }} --version"
+  register: __installed_version
+  changed_when: false
+  failed_when: false
+  when: squid_exporter_binary.stat.exists
+
+- name: "Determine whether a (re)install is needed"
+  ansible.builtin.set_fact:
+    __squid_exporter_needs_install: >-
+      {{ (not squid_exporter_binary.stat.exists)
+         or squid_exporter_force_install | bool
+         or (squid_exporter_version not in ((__installed_version.stdout | default('')) ~ (__installed_version.stderr | default('')))) }}
+
 - name: "Install tasks"
-  when: not squid_exporter_binary.stat.exists or squid_exporter_force_install | bool
+  when: __squid_exporter_needs_install | bool
   block:
     - name: "Install requirements"
       ansible.builtin.package:
         name: "ca-certificates"
         state: present
+      become: true
       register: __pkg_result
       retries: 12
       delay: 10
       until: __pkg_result is success
 
-    - name: "Download squid_exporter from target..."
+    - name: "Ensure install directory exists with safe permissions"
+      ansible.builtin.file:
+        path: "{{ squid_exporter_install_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+      become: true
+
+    - name: "Download squid_exporter directly on target"
       ansible.builtin.get_url:
-        url: '{{ squid_exporter_url }}'
-        dest: '{{ squid_exporter_install_dir }}/squid-exporter'
+        url: "{{ squid_exporter_url }}"
+        dest: "{{ squid_exporter_install_dir }}/{{ squid_exporter_binary_name }}"
         timeout: 120
-        mode: '0755'
+        mode: "0755"
+        owner: root
+        group: root
         checksum: "{{ squid_exporter_checksum | default(omit) }}"
+      become: true
       register: __dl_result
       retries: 5
       delay: 10
@@ -37,14 +87,24 @@
       when: not squid_exporter_local_dl | bool
       notify: "Restart squid_exporter"
 
-    - name: "Download squid_exporter from localhost..."
+    - name: "Ensure local cache directory exists on the controller"
+      ansible.builtin.file:
+        path: "{{ squid_exporter_local_cache_dir }}"
+        state: directory
+        mode: "0700"
       become: false
+      delegate_to: localhost
+      run_once: true
+      when: squid_exporter_local_dl | bool
+
+    - name: "Download squid_exporter on the controller (localhost)"
       ansible.builtin.get_url:
-        url: '{{ squid_exporter_url }}'
-        dest: "/tmp/squid-exporter-{{ squid_exporter_version }}"
+        url: "{{ squid_exporter_url }}"
+        dest: "{{ squid_exporter_local_cache_dir }}/{{ squid_exporter_binary_name }}-{{ squid_exporter_version }}-{{ ansible_facts.architecture }}"
         timeout: 120
-        mode: '0755'
+        mode: "0755"
         checksum: "{{ squid_exporter_checksum | default(omit) }}"
+      become: false
       register: __dl_result_local
       retries: 5
       delay: 10
@@ -53,22 +113,27 @@
       run_once: true
       when: squid_exporter_local_dl | bool
 
-    - name: "Propagate squid_exporter binary"
+    - name: "Propagate squid_exporter binary to target"
       ansible.builtin.copy:
-        src: "/tmp/squid-exporter-{{ squid_exporter_version }}"
-        dest: '{{ squid_exporter_install_dir }}/squid-exporter'
-        mode: '0755'
+        src: "{{ squid_exporter_local_cache_dir }}/{{ squid_exporter_binary_name }}-{{ squid_exporter_version }}-{{ ansible_facts.architecture }}"
+        dest: "{{ squid_exporter_install_dir }}/{{ squid_exporter_binary_name }}"
+        mode: "0755"
         owner: root
         group: root
+        remote_src: false
+      become: true
       when: squid_exporter_local_dl | bool
       notify: "Restart squid_exporter"
 
-- name: "Clean up stale local download cache (keep only the current version)"
-  become: false
+- name: "Clean up stale local download cache (keep only current version/arch)"
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
-  loop: "{{ lookup('fileglob', '/tmp/squid-exporter-*', wantlist=True) | reject('search', squid_exporter_version) | list }}"
+  loop: >-
+    {{ lookup('fileglob', squid_exporter_local_cache_dir ~ '/' ~ squid_exporter_binary_name ~ '-*', wantlist=True)
+       | reject('search', squid_exporter_version ~ '-' ~ ansible_facts.architecture)
+       | list }}
+  become: false
   delegate_to: localhost
   run_once: true
   when: squid_exporter_local_dl | bool
@@ -76,28 +141,40 @@
     - install
     - cleanup
 
-- name: "Create systemd for squid_exporter"
+### systemd unit
+- name: "Create systemd unit for squid_exporter"
   ansible.builtin.template:
-    src: 'squid_exporter.service.j2'
-    dest: '/etc/systemd/system/squid_exporter.service'
-    mode: '0644'
+    src: "squid_exporter.service.j2"
+    dest: "/etc/systemd/system/squid_exporter.service"
+    owner: root
+    group: root
+    mode: "0644"
+  become: true
   notify: "Restart squid_exporter"
 
 - name: "Validate systemd unit syntax"
   ansible.builtin.command: systemd-analyze verify /etc/systemd/system/squid_exporter.service
+  become: true
   changed_when: false
   register: __unit_check
   failed_when: __unit_check.rc != 0
 
-- name: "Enable and Start squid_exporter.service"
-  ansible.builtin.service:
+- name: "Enable and start squid_exporter.service"
+  ansible.builtin.systemd_service:
     name: squid_exporter
     state: started
     enabled: true
     daemon_reload: true
+  become: true
 
 - name: "Wait for squid_exporter to listen on its metrics port"
   ansible.builtin.wait_for:
     port: "{{ squid_exporter_listen_port }}"
-    host: "{{ '127.0.0.1' if squid_exporter_listen_address in ['127.0.0.1', '0.0.0.0'] else squid_exporter_listen_address }}"
+    host: "{{ '127.0.0.1' if squid_exporter_listen_address == '0.0.0.0' else squid_exporter_listen_address }}"
     timeout: 15
+
+- name: "Confirm the running binary matches the requested version"
+  ansible.builtin.command: "{{ squid_exporter_install_dir }}/{{ squid_exporter_binary_name }} --version"
+  changed_when: false
+  register: __final_version
+  failed_when: squid_exporter_version not in (__final_version.stdout ~ __final_version.stderr)

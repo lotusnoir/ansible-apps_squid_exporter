@@ -3,32 +3,46 @@
 [Unit]
 Description=Prometheus squid Exporter
 After=network-online.target
-StartLimitInterval=0
+Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 Restart=always
-User=squid_exporter
-Group=squid_exporter
-DynamicUser=yes
-NoNewPrivileges=yes
-ProtectSystem=strict
-ProtectHome=yes
-ProtectKernelTunables=yes
-ProtectKernelModules=yes
-ProtectControlGroups=yes
-RestrictAddressFamilies=AF_INET AF_INET6
-MemoryDenyWriteExecute=yes
-ExecStart={{ squid_exporter_install_dir }}/squid-exporter \
-{% if squid_exporter_extra_flags is defined and squid_exporter_extra_flags != "" %}        {{ squid_exporter_extra_flags }} \
-{% endif %}
+RestartSec=1
+User={{ squid_exporter_user }}
+Group={{ squid_exporter_group }}
+
+ExecStart={{ squid_exporter_install_dir }}/{{ squid_exporter_binary_name }} \
+{% for flag in squid_exporter_extra_flags %}        {{ flag }} \
+{% endfor %}
         -squid-hostname "{{ squid_exporter_squid_host }}" \
         -squid-port {{ squid_exporter_squid_port }} \
         -listen "{{ squid_exporter_listen_address }}:{{ squid_exporter_listen_port }}"
 ExecReload=/bin/kill -HUP $MAINPID
 SyslogIdentifier=squid_exporter
-RestartSec=1
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
 PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RemoveIPC=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

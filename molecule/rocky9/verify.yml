@@ -19,6 +19,9 @@
         - name: Get squid-exporter PID
           ansible.builtin.command: "pgrep -f squid-exporter"
           register: process_pid
+          retries: 10
+          delay: 2
+          until: process_pid.rc == 0
           ignore_errors: true
           changed_when: false
 
@@ -37,15 +40,16 @@
             fail_msg: "squid-exporter is not running, or is running as root (UID 0)"
             success_msg: "squid-exporter running as non-root dynamic UID"
 
-        - name: Collect ports as facts
-          community.general.listen_ports_facts:
-
-        - name: Check port is listening
-          ansible.builtin.assert:
-            that:
-              - "9103 in ansible_facts.tcp_listen | map(attribute='port')"
+        - name: Wait for port 9103 to be listening
+          ansible.builtin.wait_for:
+            port: 9103
+            timeout: 20
 
         - name: Check urls code
           ansible.builtin.uri:
             url: "http://127.0.0.1:9103/metrics"
             status_code: 200
+          register: __url_check
+          retries: 10
+          delay: 2
+          until: __url_check.status is defined and __url_check.status == 200

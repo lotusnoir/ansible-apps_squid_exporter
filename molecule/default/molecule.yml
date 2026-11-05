@@ -1,6 +1,8 @@
 ---
 dependency:
   name: galaxy
+  options:
+    requirements-file: molecule/default/requirements.yml
 
 driver:
   name: docker
@@ -22,12 +24,15 @@ scenario:
     - destroy
 
 platforms:
-  - name: apps-squid-exporter-${MOLECULE_DISTRIB:-debian12}
-    image: lotusnoir/ansible_molecule_test_images:${MOLECULE_DISTRIB:-debian12}
+  - name: apps-squid-exporter-${MOLECULE_DISTRIB:-debian13}
+    image: lotusnoir/ansible_molecule_test_images:${MOLECULE_DISTRIB:-debian13}
+    pull: false
     command: ${MOLECULE_DOCKER_COMMAND:-""}
     cgroupns_mode: host
     pre_build_image: true
     privileged: true
+    security_opts:
+      - apparmor:unconfined
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
 

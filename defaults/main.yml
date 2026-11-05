@@ -1,20 +1,43 @@
 ---
+# =============================================================================
 # Binary install
+# =============================================================================
 squid_exporter_version: "1.13.0"
-squid_exporter_url: "https://github.com/boynux/squid-exporter/releases/download/v{{ squid_exporter_version }}/squid-exporter-linux-amd64"
+
+squid_exporter_arch_map:
+  x86_64: "amd64"
+  aarch64: "arm64"
+
+squid_exporter_url: "https://github.com/boynux/squid-exporter/releases/download/v{{ squid_exporter_version }}/squid-exporter-linux-{{ squid_exporter_arch_map[ansible_facts.architecture] | default('amd64') }}"
+
 squid_exporter_install_dir: "/usr/local/bin"
+squid_exporter_binary_name: "squid-exporter"
+
 squid_exporter_force_install: false
 squid_exporter_local_dl: true
-# sha256 checksum of the downloaded binary, format "sha256:<hash>".
-# Leave empty to skip verification (not recommended for production).
-squid_exporter_checksum: ""
+squid_exporter_local_cache_dir: "/tmp/ansible-apps_squid_exporter"
 
-# Systemd options
+squid_exporter_checksums:
+  amd64: "sha256:35a8902fdd81f47e88701e8528e84b017c61a8bb03792094455388240772cf90"
+  arm64: "sha256:3f8b9be5d4b16d7973e9219997425995e9299e524ec80d89e20863af06f8962c"
+squid_exporter_checksum: "{{ squid_exporter_checksums[squid_exporter_arch_map[ansible_facts.architecture]] }}"
+
+# =============================================================================
+# Runtime / systemd options
+# =============================================================================
 squid_exporter_squid_host: "localhost"
 squid_exporter_squid_port: "3128"
-# Interface/IP the exporter's metrics endpoint binds to.
-# Default is loopback-only; set to "0.0.0.0" to expose it on all interfaces
-# (e.g. if Prometheus scrapes it remotely without a local relay/firewall rule).
+
 squid_exporter_listen_address: "127.0.0.1"
 squid_exporter_listen_port: "9103"
-squid_exporter_extra_flags: "-extractservicetimes=false"
+
+squid_exporter_extra_flags:
+  - "-extractservicetimes=false"
+
+squid_exporter_user: "squid_exporter"
+squid_exporter_group: "squid_exporter"
+
+# =============================================================================
+# Framework / idempotency flag (consumed by tasks/main.yml, unmodified)
+# =============================================================================
+success_run_flag: true

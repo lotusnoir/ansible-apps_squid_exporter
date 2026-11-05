@@ -9,7 +9,6 @@ galaxy_info:
   platforms:
     - name: "Ubuntu"
       versions:
-        - "focal"
         - "jammy"
         - "noble"
         - "resolute"
@@ -17,7 +16,6 @@ galaxy_info:
       versions:
         - "bookworm"
         - "bullseye"
-        - "buster"
         - "trixie"
     - name: "Rocky"
       versions:
